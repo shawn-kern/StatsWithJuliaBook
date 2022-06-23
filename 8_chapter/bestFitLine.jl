@@ -1,7 +1,7 @@
 using DataFrames, Distributions, Random, LinearAlgebra, CSV, Plots; pyplot()
 Random.seed!(0)
 
-data = CSV.read("../data/L1L2data.csv")
+data = CSV.read("../data/L1L2data.csv", DataFrame)
 xVals, yVals, n = data.X, data.Y, size(data)[1]
 
 N = 10^6
@@ -31,22 +31,22 @@ d = yVals - (alpha2 .+ beta2*xVals)
 rectangle(x, y, d) = Shape(x .- [0,d,d,0,0], y .- [0,0,d,d,0])
 
 p1 = scatter(xVals,yVals, c=:black, ms=5, label="")
-p1 = plot!([0,10],[alpha1, alpha1 .+ beta1*10], c=:blue,label="L1 minimized")
+p1 = plot!([0,10],[alpha1, alpha1 + beta1*10], c=:blue,label="L1 minimized")
 for i in 1:n
     x,y = xVals[i],yVals[i]
-    p1 = plot!([x, x], [y, alpha1 .+ beta1*x],color="black", label="")
+    global p1 = plot!([x, x], [y, alpha1 + beta1*x],color="black", label="")
 end
 
 p2 = scatter(xVals,yVals, c=:black, ms=5, label="")
 p2 = plot!([0,10],[alpha2, alpha2 .+ beta2*10],c=:red,label="L2 minimized")
 for i in 1:n
     x,y = xVals[i],yVals[i]
-	p2 = plot!(rectangle(x,y,d[i]), fc=:gray, fa=0.5, label="")
+	global p2 = plot!(rectangle(x,y,d[i]), fc=:gray, fa=0.5, label="")
 end
 
 p3 = scatter(xVals,yVals, c=:black, ms=5, label="")
-p3 = plot!([0,10],[alpha1, alpha1 .+ beta1*10], c=:blue, label="L1 minimized")
-p3 = plot!([0,10],[alpha2, alpha2 .+ beta2*10], c=:red, label="L2 minimized")
+p3 = plot!([0,10],[alpha1, alpha1 + beta1*10], c=:blue, label="L1 minimized")
+p3 = plot!([0,10],[alpha2, alpha2 + beta2*10], c=:red, label="L2 minimized")
 
 plot(p1, p2, p3, layout = (1,3), 
 	ratio=:equal, xlims=(0,10), ylims=(0,10), 

@@ -1,5 +1,5 @@
 using DataFrames, GLM, Statistics, LinearAlgebra, CSV
-data = CSV.read("../data/L1L2data.csv")
+data = CSV.read("../data/L1L2data.csv", DataFrame)
 xVals, yVals = data[:,1], data[:,2]
 n = length(xVals)
 A = [ones(n) xVals]
