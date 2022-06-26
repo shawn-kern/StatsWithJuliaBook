@@ -1,35 +1,38 @@
-using DataFrames, CSV, Query
+using DataFrames, CSV, Query, CategoricalArrays, DataStructures
 
-raw_data = CSV.read("hfacs/HFACS_FY19-22_5YR.csv", DataFrame, types=Dict(:Type=>String, :NanoCode=>Symbol), copycols=true)
+raw_data = CSV.read("hfacs/HFACS_FY19-22_5YR.csv", DataFrame, 
+types=Dict(:Type=>String, :NanoCode=>Symbol))
 
-function convert_mishap_type(value)
-    if value == "Close Call" return "L"
-    elseif value == "Non-8621 Reportable" return "O"
-    else return value[end-1:end]
-    end
-end
+dropmissing!(raw_data, [:Type, :NanoCode], disallowmissing=true)
 
-base_data = @from row in raw_data begin
-  @where !isna(row.NanoCode)
-  @select { row.ID, Center=split(row.Center)[1], Type=convert_mishap_type(row.Type), 
-    Injury=row.Injury=="Yes", Damage=row.Damage=="Yes", row.NanoCode, Days=row.OSHA_Days_Away,
-   Cost=row.Final_Cost }
+raw_data.Type = categorical(raw_data.Type, ordered=true)
+levels!(hfacs_data.Type, ["Non-8621 Reportable", "Close Call",    
+    "Mishap - Type D", "Mishap - Type C", "Mishap - Type B", "Mishap - Type A"])
+
+hfacs_data = @from row in raw_data begin
+  @select { row.ID, Center=split(row.Center)[1], row.Type, 
+#    Injury=row.Injury=="Yes" ? 1 : 0, Damage=row.Damage=="Yes" ? 1 : 0, 
+    Injury=row.Injury=="Yes", Damage=row.Damage=="Yes", 
+    row.NanoCode, Days=row.OSHA_Days_Away,
+    Cost=row.Final_Cost }
   @collect DataFrame
 end
 
-nanocodes = @from row in base_data begin
+nanocodes = @from row in hfacs_data begin
     @group row by row.ID into grp
-    @select { ID=key(grp), codes=collect(grp.NanoCode) }
+    @select { ID=key(grp), codes=Set(grp.NanoCode) }
     @collect DataFrame
 end
 
-newcol = Set{Symbol}[]
-for row in eachrow(nanocodes)
-    S = Set{Symbol}()
-    for item in row.codes
-        push!(S, get(item))
-    end
-    push!(newcol, S)
-end
-nanocodes.codes = newcol
+# excluding Days & Cost since some IDs have multiple values
+# think about how to group these at the maximum value
+hfacs_data = hfacs_data[:, Not([:NanoCode, :Days, :Cost])]
+unique!(hfacs_data)
 
+nanocode_index = SortedSet(union(nanocodes.codes...))
+
+codes = Array{Bool, 2}(undef, nrow(nanocodes), length(nanocode_index))
+for (i, code) in enumerate(nanocode_index)
+    codes[:, i] = code .∈ nanocodes.codes
+end
+hcat(hfacs_data, DataFrame(codes, collect(nanocode_index)))
