@@ -24,15 +24,21 @@ nanocodes = @from row in hfacs_data begin
     @collect DataFrame
 end
 
-# excluding Days & Cost since some IDs have multiple values
-# think about how to group these at the maximum value
+costs = @from row in hfacs_data begin
+    @group row by row.ID into grp
+    @select { ID=key(grp), Days=maximum(grp.Days), Cost=maximum(grp.Cost) }
+    @collect DataFrame
+end
+
 hfacs_data = hfacs_data[:, Not([:NanoCode, :Days, :Cost])]
 unique!(hfacs_data)
+hfacs_data = innerjoin(hfacs_data, costs, on=:ID)
 
 nanocode_index = SortedSet(union(nanocodes.codes...))
-
 codes = Array{Bool, 2}(undef, nrow(nanocodes), length(nanocode_index))
 for (i, code) in enumerate(nanocode_index)
     codes[:, i] = code .∈ nanocodes.codes
 end
-hcat(hfacs_data, DataFrame(codes, collect(nanocode_index)))
+hfacs_data = hcat(hfacs_data, DataFrame(codes, collect(nanocode_index)))
+
+# simple analyses
