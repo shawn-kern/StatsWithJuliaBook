@@ -1,6 +1,6 @@
 using CSV, GLM, Distributions, Plots; pyplot()
 
-data = CSV.read("../data/weightHeight.csv")
+data = CSV.read("../data/weightHeight.csv", DataFrame)
 df = sort(data, :Weight)[1:20,:]
 model = lm(@formula(Height ~ Weight), df)
 pred(x) = coef(model)'*[1, x]

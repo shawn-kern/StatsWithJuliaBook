@@ -1,6 +1,6 @@
 using DataFrames, GLM, Statistics, CSV, Plots; pyplot()
 
-data = CSV.read("../data/weightHeight.csv")
+data = CSV.read("../data/weightHeight.csv", DataFrame)
 
 lm1 = lm(@formula(Height ~ Weight), data)
 lm2 = fit(LinearModel,@formula(Height ~ Weight), data)

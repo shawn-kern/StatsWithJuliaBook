@@ -1,6 +1,6 @@
 using GLM, DataFrames, Distributions, Plots, CSV; pyplot()
 
-data = CSV.read("../data/examData.csv")
+data = CSV.read("../data/examData.csv", DataFrame)
 model = glm(@formula(Pass ~ Hours), data, Binomial(), LogitLink())
 println(model)
 

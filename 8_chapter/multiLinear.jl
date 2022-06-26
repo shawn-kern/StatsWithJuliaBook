@@ -1,7 +1,7 @@
 using CSV, GLM, Plots, Random; pyplot()
 Random.seed!(0)
 
-df = CSV.read("../data/weightHeight.csv", copycols = true)
+df = CSV.read("../data/weightHeight.csv", DataFrame, copycols = true, types=Dict(:Sex=>String))
 n = size(df)[1]
 df[shuffle(1:n),:] = df
 df[[10,40,60,130,140,175,190,200],:Sex] .= "O1"
