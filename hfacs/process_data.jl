@@ -11,12 +11,14 @@ levels!(raw_data.Type, ["Non-8621 Reportable", "Close Call",
     "Mishap - Type D", "Mishap - Type C", "Mishap - Type B", "Mishap - Type A"])
 
 hfacs_data = @from row in raw_data begin
-  @select { row.ID, Center=split(row.Center)[1], row.Type, 
+    @where row.Type != "Non-8621 Reportable"
+    @select { row.ID, Center=split(row.Center)[1], row.Type, 
     Injury=row.Injury=="Yes", Damage=row.Damage=="Yes", 
     row.NanoCode, Days=row.OSHA_Days_Away,
     Cost=row.Final_Cost }
   @collect DataFrame
 end
+droplevels!(hfacs_data.Type)
 
 nanocodes = @from row in hfacs_data begin
     @group row by row.ID into grp
