@@ -66,19 +66,21 @@ X2_pvalues = [ pvalue(ChisqTest(freqtable(hfacs_data[:, i], hfacs_data[:,j])), t
 
 function categorical_correlation(index1, index2)
     table = freqtable(hfacs_data[:, index1], hfacs_data[:, index2])
-    X2 = 0
+    nr, nc = size(table)
+    X2=0
     row_margins = hcat(table, sum(table, dims=2))
     margins = vcat(row_margins, sum(row_margins, dims=1))
-    for i=1:2
-        for j=1:2
-            expected = margins[i,3]*margins[3,j]/margins[3,3]
+    for i=1:nr
+        for j=1:nc
+            expected = margins[i,nc+1]*margins[nr+1,j]/margins[nr+1,nc+1]
             X2 += (margins[i,j]-expected)^2/expected
         end
     end
-    V = sqrt(X2/margins[3,3])
-    pvalue = ccdf(Chisq(1),X2)
+    V = sqrt(X2/margins[nr+1,nc+1])
+    pvalue = ccdf(Chisq((nr-1)*(nc-1)),X2)
     return V, X2, pvalue
 end
+
 
 # find correlated pairs of nanocodes that occur more than once
 function find_index_pairs(threshold=0.5, center="All")
