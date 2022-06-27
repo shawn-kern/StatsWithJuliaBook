@@ -12,7 +12,6 @@ levels!(raw_data.Type, ["Non-8621 Reportable", "Close Call",
 
 hfacs_data = @from row in raw_data begin
   @select { row.ID, Center=split(row.Center)[1], row.Type, 
-#    Injury=row.Injury=="Yes" ? 1 : 0, Damage=row.Damage=="Yes" ? 1 : 0, 
     Injury=row.Injury=="Yes", Damage=row.Damage=="Yes", 
     row.NanoCode, Days=row.OSHA_Days_Away,
     Cost=row.Final_Cost }
@@ -42,21 +41,16 @@ for row in eachrow(unique(raw_data[:, [:NanoCode, :NanoCode_Name]]))
     nanocode_names[row.NanoCode] = row.NanoCode_Name
 end
 
-frequency=Dict()
-for code in nanocode_index
-    frequency[code, "All"] = sum(hfacs_data[:, code])
-    frequency[code, "Armstrong"] = sum(hfacs_data[hfacs_data.Center .== "Armstrong", code])
-end
-
 codes = Array{Bool, 2}(undef, nrow(nanocodes), length(nanocode_index))
 for (i, code) in enumerate(nanocode_index)
     codes[:, i] = code .∈ nanocodes.codes
 end
 hfacs_data = hcat(hfacs_data, DataFrame(codes, collect(nanocode_index)))
 
-# analyses
-for level in levels(hfacs_data.Type)
-    println("Mishap totals for $level: all centers $(sum(hfacs_data.Type .== level)), Armstrong $(sum(hfacs_data.Type[hfacs_data.Center .== "Armstrong"] .== level))")
+frequency=Dict()
+for code in nanocode_index
+    frequency[code, "All"] = sum(hfacs_data[:, code])
+    frequency[code, "Armstrong"] = sum(hfacs_data[hfacs_data.Center .== "Armstrong", code])
 end
 
 X2_pvalues = [ pvalue(ChisqTest(freqtable(hfacs_data[:, i], hfacs_data[:,j])), tail=:right)
@@ -80,13 +74,13 @@ function categorical_correlation(index1, index2)
 end
 
 # find correlated pairs of nanocodes that occur more than once
-function find_index_pairs(; α=0.05, center="All", min_n=1)
+function find_index_pairs(; α=0.05, center="All", min_n=2)
     results = DataFrame(Index1=Symbol[], Index2=Symbol[], V=Float64[], pvalue=Float64[], N1=Int[], N2=Int[])
     for i in nanocode_index
         for j in nanocode_index
             if i ≥ j continue end
             V, X2, pvalue = categorical_correlation(i, j)
-            if pvalue < α && (frequency[i, center] > min_n && frequency[j, center] > min_n)
+            if pvalue < α && (frequency[i, center] ≥ min_n && frequency[j, center] ≥ min_n)
                 push!(results, (i, j, V, pvalue, frequency[i, center], frequency[j, center]))
             end
         end
@@ -95,14 +89,47 @@ function find_index_pairs(; α=0.05, center="All", min_n=1)
 end
 
 # find nanocodes correlated with specific index
-function find_index_match(index=:Type; α=0.05, center="All", min_n=1)
+function find_index_match(index=:Type; α=0.05, center="All", min_n=2)
     results = DataFrame(Index1=Symbol[], Index2=Symbol[], V=Float64[], pvalue=Float64[], N=Int[])
     for j in nanocode_index
         if j == index continue end
         V, X2, pvalue = categorical_correlation(index, j)
-        if pvalue < α && frequency[j, center] > min_n
+        if pvalue < α && frequency[j, center] ≥ min_n
             push!(results, (index, j, V, pvalue, frequency[j, center]))
         end
     end
     return sort(results, [:pvalue])
 end
+
+# analyses
+
+# mishap totals
+for level in levels(hfacs_data.Type)
+    println("Mishap totals for $level: all centers $(sum(hfacs_data.Type .== level)), Armstrong $(sum(hfacs_data.Type[hfacs_data.Center .== "Armstrong"] .== level))")
+end
+
+#find dirty dozen nanocodes
+results = DataFrame(Code=Symbol[], Center=String[], Count=Int[])
+for index in nanocode_index
+    push!(results, (index, "All", frequency[index, "All"]))
+    push!(results, (index, "Armstrong", frequency[index, "Armstrong"]))
+end
+sort!(results, [:Center, :Count], rev=true)
+println("\nDirty dozen")
+println("All:\n", first(results[results.Center .== "All", :],12))
+println("Armstrong\n", first(results[results.Center .== "Armstrong", :],12))
+
+#find damage associations
+println("\nDamage association")
+println("All\n", find_index_match(:Damage; α=0.05, center="All"))
+println("Armstrong\n", find_index_match(:Damage; α=0.05, center="Armstrong"))
+
+#find injury associations
+println("\nInjury association")
+println("All\n", find_index_match(:Damage; α=0.05, center="All"))
+println("Armstrong\n", find_index_match(:Damage; α=0.01, center="Armstrong"))
+
+#find pairs
+println("\nAssociated pairs")
+println("All\n", first(find_index_pairs(; α=0.001, center="All"),20))
+println("Armstrong\n", first(find_index_pairs(; α=0.001, center="Armstrong"),20))
