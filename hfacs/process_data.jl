@@ -1,7 +1,7 @@
 using LinearAlgebra, DataStructures, DataFrames, CSV, Query
 using Distributions, CategoricalArrays, FreqTables, HypothesisTests
 
-raw_data = CSV.read("hfacs/HFACS_FY19-22_5YR.csv", DataFrame, 
+raw_data = CSV.read("hfacs/HFACS_ALL_5YR.csv", DataFrame, 
 types=Dict(:Type=>String, :NanoCode=>Symbol))
 
 dropmissing!(raw_data, [:Type, :NanoCode], disallowmissing=true)
@@ -147,13 +147,13 @@ end
 #find injury associations
 println("\nInjury association")
 println("All Centers")
-results = find_index_match(:Damage; α=0.05, center="All")
+results = find_index_match(:Injury; α=0.05, center="All")
 for (i, row) in enumerate(eachrow(results))
     println("$i. $(nanocode_names[row.Index2]) ($(row.Index2)) (p=$(round(row.pvalue, sigdigits=3)), n=$(row.N))")
 end
 
 println("\nArmstrong")
-results = find_index_match(:Damage; α=0.01, center="Armstrong")
+results = find_index_match(:Injury; α=0.01, center="Armstrong")
 for (i, row) in enumerate(eachrow(results))
     println("$i. $(nanocode_names[row.Index2]) ($(row.Index2)) (p=$(round(row.pvalue, sigdigits=3)), n=$(row.N))")
 end
@@ -161,13 +161,13 @@ end
 #find pairs
 println("\nAssociated pairs")
 println("All Centers")
-pairs = first(find_index_pairs(; α=0.001, center="All"),20)
+pairs = first(find_index_pairs(; α=0.001, center="All", min_n=4),20)
 for (i, row) in enumerate(eachrow(pairs))
     println("$i. $(nanocode_names[row.Index1]) ($(row.Index1)) & $(lowercase(nanocode_names[row.Index2])) ($(row.Index2)) (p=$(round(row.pvalue, sigdigits=3)), n1=$(row.N1), n2=$(row.N2))")
 end
 
 println("\nArmstrong")
-pairs = first(find_index_pairs(; α=0.001, center="Armstrong"),20)
+pairs = first(find_index_pairs(; α=0.001, center="Armstrong", min_n=4),20)
 for (i, row) in enumerate(eachrow(pairs))
     println("$i. $(nanocode_names[row.Index1]) ($(row.Index1)) & $(lowercase(nanocode_names[row.Index2])) ($(row.Index2)) (p=$(round(row.pvalue, sigdigits=3)), n1=$(row.N1), n2=$(row.N2))")
 end
