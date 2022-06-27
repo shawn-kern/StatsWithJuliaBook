@@ -1,4 +1,5 @@
-using DataFrames, CSV, Query, CategoricalArrays, DataStructures, FreqTables, LinearAlgebra
+using LinearAlgebra, DataStructures, DataFrames, CSV, Query
+using Distributions, CategoricalArrays, FreqTables, HypothesisTests
 
 raw_data = CSV.read("hfacs/HFACS_FY19-22_5YR.csv", DataFrame, 
 types=Dict(:Type=>String, :NanoCode=>Symbol))
@@ -6,7 +7,7 @@ types=Dict(:Type=>String, :NanoCode=>Symbol))
 dropmissing!(raw_data, [:Type, :NanoCode], disallowmissing=true)
 
 raw_data.Type = categorical(raw_data.Type, ordered=true)
-levels!(hfacs_data.Type, ["Non-8621 Reportable", "Close Call",    
+levels!(raw_data.Type, ["Non-8621 Reportable", "Close Call",    
     "Mishap - Type D", "Mishap - Type C", "Mishap - Type B", "Mishap - Type A"])
 
 hfacs_data = @from row in raw_data begin
@@ -48,29 +49,20 @@ for level in levels(hfacs_data.Type)
     println("Mishap totals for $level: all centers $(sum(hfacs_data.Type .== level)), Armstrong $(sum(hfacs_data.Type[hfacs_data.Center .== "Armstrong"] .== level))")
 end
 
+frequency=Dict()
 for code in nanocode_index
-    println(code, " ", sum(hfacs_data[:, code]), " ", sum(hfacs_data[hfacs_data.Center .== "Armstrong", code]))
+    frequency[code]=(sum(hfacs_data[:, code]), sum(hfacs_data[hfacs_data.Center .== "Armstrong", code]))
 end
 
-full_matrix = [ dot(hfacs_data[:, nanocode_index[i]], hfacs_data[:, nanocode_index[j]]) 
+#= full_matrix = [ dot(hfacs_data[:, nanocode_index[i]], hfacs_data[:, nanocode_index[j]]) 
     for i in 1:length(nanocode_index), j in 1:length(nanocode_index) ]
 
 Armstrong_matrix = [ dot(hfacs_data[hfacs_data.Center .== "Armstrong", 
     nanocode_index[i]], hfacs_data[hfacs_data.Center .== "Armstrong", nanocode_index[j]]) 
-    for i in 1:length(nanocode_index), j in 1:length(nanocode_index) ]
+    for i in 1:length(nanocode_index), j in 1:length(nanocode_index) ] =#
 
-χ2_pvalues = [ pvalue(ChisqTest(freqtable(hfacs_data[:, i], hfacs_data[:,j])), tail=:right)
+X2_pvalues = [ pvalue(ChisqTest(freqtable(hfacs_data[:, i], hfacs_data[:,j])), tail=:right)
      for i in nanocode_index, j in nanocode_index ]
-V = χ2
-
-for i in 1:length(nanocode_index)
-    for j in 1:length(nanocode_index)
-        if i==j continue end
-        if χ2_pvalues[i, j] < 0.001
-            println("$(nanocode_index[i]) & $(nanocode_index[j]) have $(χ2_pvalues[i, j]).")
-        end
-    end
-end
 
 function categorical_correlation(index1, index2)
     table = freqtable(hfacs_data[:, index1], hfacs_data[:, index2])
@@ -86,4 +78,40 @@ function categorical_correlation(index1, index2)
     V = sqrt(X2/margins[3,3])
     pvalue = ccdf(Chisq(1),X2)
     return V, X2, pvalue
+end
+
+# find correlated pairs of nanocodes that occur more than once
+function find_index_pairs(threshold=0.5, center="All")
+    count = 0   
+    index = center=="Armstrong" ? 2 : 1
+    for i in nanocode_index
+        for j in nanocode_index
+            if i ≥ j continue end
+            V, X2, pvalue = categorical_correlation(i, j)
+            if V > threshold && (frequency[i][index] > 1 && frequency[j][index] > 1)
+                count += 1
+                println("$i & $j have $V, $pvalue, ($(frequency[i][index]), $(frequency[j][index]))")
+            end
+        end
+    end
+    println(count)
+end
+
+function find_mishap_index(threshold=0.5, center="All", type="Damage") 
+    count = 0   
+    index = center=="Armstrong" ? 2 : 1
+    Type = type == "Damage" ? :Damage : :Injury
+    for i in nanocode_index
+        V, X2, pvalue = categorical_correlation(i, Type)
+        if V > threshold && frequency[i][index] > 1
+                count += 1
+                println("$i & $Type have $V, $pvalue, ($(frequency[i][index]))")
+        end
+    end
+    println(count)
+end
+
+nanocode_names = Dict()
+for row in eachrow(unique(raw_data[:, [:NanoCode, :NanoCode_Name]]))
+    nanocode_names[row.NanoCode] = row.NanoCode_Name
 end
