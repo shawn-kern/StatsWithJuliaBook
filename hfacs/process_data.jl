@@ -133,29 +133,29 @@ end
 #find damage associations
 println("\nDamage association")
 println("All Centers")
-results = find_index_match(:Damage; α=0.05, center="All")
+results = find_index_match(:Damage; α=0.05, center="All", min_n=4)
 for (i, row) in enumerate(eachrow(results))
-    println("$i. $(nanocode_names[row.Index2]) ($(row.Index2)) (p=$(round(row.pvalue, sigdigits=3)), n=$(row.N))")
+    println("$i. $(nanocode_names[row.Index2]) (p=$(round(row.pvalue, sigdigits=3)), n=$(row.N))")
 end
 
 println("\nArmstrong")
-results = find_index_match(:Damage; α=0.05, center="Armstrong")
+results = find_index_match(:Damage; α=0.05, center="Armstrong", min_n=4)
 for (i, row) in enumerate(eachrow(results))
-    println("$i. $(nanocode_names[row.Index2]) ($(row.Index2)) (p=$(round(row.pvalue, sigdigits=3)), n=$(row.N))")
+    println("$i. $(nanocode_names[row.Index2]) (p=$(round(row.pvalue, sigdigits=3)), n=$(row.N))")
 end
 
 #find injury associations
 println("\nInjury association")
 println("All Centers")
-results = find_index_match(:Injury; α=0.05, center="All")
+results = find_index_match(:Injury; α=0.05, center="All", min_n=4)
 for (i, row) in enumerate(eachrow(results))
-    println("$i. $(nanocode_names[row.Index2]) ($(row.Index2)) (p=$(round(row.pvalue, sigdigits=3)), n=$(row.N))")
+    println("$i. $(nanocode_names[row.Index2]) (p=$(round(row.pvalue, sigdigits=3)), n=$(row.N))")
 end
 
 println("\nArmstrong")
-results = find_index_match(:Injury; α=0.01, center="Armstrong")
+results = find_index_match(:Injury; α=0.05, center="Armstrong", min_n=4)
 for (i, row) in enumerate(eachrow(results))
-    println("$i. $(nanocode_names[row.Index2]) ($(row.Index2)) (p=$(round(row.pvalue, sigdigits=3)), n=$(row.N))")
+    println("$i. $(nanocode_names[row.Index2]) (p=$(round(row.pvalue, sigdigits=3)), n=$(row.N))")
 end
 
 #find pairs
