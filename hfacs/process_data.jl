@@ -10,29 +10,29 @@ raw_data.Type = categorical(raw_data.Type, ordered=true)
 levels!(raw_data.Type, ["Non-8621 Reportable", "Close Call",    
     "Mishap - Type D", "Mishap - Type C", "Mishap - Type B", "Mishap - Type A"])
 
-hfacs_data = @from row in raw_data begin
+base_data = @from row in raw_data begin
     @where row.Type != "Non-8621 Reportable"
     @select { row.ID, Center=split(row.Center)[1], row.Type, 
     Injury=row.Injury=="Yes", Damage=row.Damage=="Yes", 
-    row.NanoCode, Days=row.OSHA_Days_Away,
-    Cost=row.Final_Cost }
+    row.NanoCode, NanoCode_Reason=row.HFACS_Rationale, Days=row.OSHA_Days_Away, 
+    Cost=row.Final_Cost, Desc=row.Description }
   @collect DataFrame
 end
-droplevels!(hfacs_data.Type)
+droplevels!(base_data.Type)
 
-nanocodes = @from row in hfacs_data begin
+nanocodes = @from row in base_data begin
     @group row by row.ID into grp
     @select { ID=key(grp), codes=Set(grp.NanoCode) }
     @collect DataFrame
 end
 
-costs = @from row in hfacs_data begin
+costs = @from row in base_data begin
     @group row by row.ID into grp
     @select { ID=key(grp), Days=maximum(grp.Days), Cost=maximum(grp.Cost) }
     @collect DataFrame
 end
 
-hfacs_data = hfacs_data[:, Not([:NanoCode, :Days, :Cost])]
+hfacs_data = base_data[:, Not([:NanoCode, :NanoCode_Reason, :Days, :Cost])]
 unique!(hfacs_data)
 hfacs_data = innerjoin(hfacs_data, costs, on=:ID)
 
@@ -53,6 +53,18 @@ frequency=Dict()
 for code in nanocode_index
     frequency[code, "All"] = sum(hfacs_data[:, code])
     frequency[code, "Armstrong"] = sum(hfacs_data[hfacs_data.Center .== "Armstrong", code])
+end
+
+function get_desc(ID::String)
+    desc = hfacs_data[hfacs_data.ID .== ID, :Desc]
+    println(desc)
+    return desc
+end
+
+function get_hfacs_desc(ID::String, code::Symbol)
+    desc = base_data[(base_data.ID .== ID) .& (base_data.NanoCode .== code), :NanoCode_Reason]
+    println(desc)
+    return desc
 end
 
 X2_pvalues = [ pvalue(ChisqTest(freqtable(hfacs_data[:, i], hfacs_data[:,j])), tail=:right)
@@ -118,6 +130,8 @@ for index in nanocode_index
     push!(results, (index, "Armstrong", frequency[index, "Armstrong"]))
 end
 sort!(results, [:Center, :Count], rev=true)
+nasa_dirty_d = Set(first(results.Code[results.Center .== "All", :],12))
+armstrong_dirty_d = Set(first(results.Code[results.Center .== "Armstrong", :],12))
 
 println("\nDirty dozen")
 println("All Centers")
@@ -171,3 +185,47 @@ pairs = first(find_index_pairs(; α=0.001, center="Armstrong", min_n=4),20)
 for (i, row) in enumerate(eachrow(pairs))
     println("$i. $(nanocode_names[row.Index1]) ($(row.Index1)) & $(lowercase(nanocode_names[row.Index2])) ($(row.Index2)) (p=$(round(row.pvalue, sigdigits=3)), n1=$(row.N1), n2=$(row.N2))")
 end
+
+pc007_av002_pp104_si001 = @from row in hfacs_data begin
+    @where row.PC007 == true && row.AV002 == true && row.PP104 == true && row.SI001 == true
+    @select { row.ID, row.Days, row.Cost }
+    @collect DataFrame
+end
+
+trng_pubs_system = @from row in hfacs_data begin
+    @where row.OP005 == true && row.OP006 == true && row.PT009
+    @select { row.ID, row.Center, row.Days, row.Cost }
+    @collect DataFrame
+end
+
+most_cost_all = @from row in hfacs_data begin
+    @where !isna(row.Cost)
+    @join row2 in nanocodes on row.ID equals row2.ID
+    @select { row.ID, row.Center, row.Days, row.Cost, Count=length(intersect(row2.codes,nasa_dirty_d)), Match=intersect(row2.codes,nasa_dirty_d) }
+    @collect DataFrame
+end
+first(sort!(most_cost_all, [:Cost], rev=true),6)
+
+most_cost = @from row in hfacs_data begin
+    @where row.Center == "Armstrong" && !isna(row.Cost)
+    @join row2 in nanocodes on row.ID equals row2.ID
+    @select { row.ID, row.Center, row.Days, row.Cost, Count=length(intersect(row2.codes,nasa_dirty_d)), Match=intersect(row2.codes,nasa_dirty_d) }
+    @collect DataFrame
+end
+first(sort!(most_cost, [:Cost], rev=true),6)
+
+most_days_all = @from row in hfacs_data begin
+    @where !isna(row.Days)
+    @join row2 in nanocodes on row.ID equals row2.ID
+    @select { row.ID, row.Center, row.Days, row.Cost, Count=length(intersect(row2.codes,nasa_dirty_d)), Match=intersect(row2.codes,nasa_dirty_d) }
+    @collect DataFrame
+end
+first(sort!(most_days_all, [:Days], rev=true),6)
+
+most_days = @from row in hfacs_data begin
+    @where row.Center == "Armstrong" && !isna(row.Days)
+    @join row2 in nanocodes on row.ID equals row2.ID
+    @select { row.ID, row.Center, row.Days, row.Cost, Count=length(intersect(row2.codes,nasa_dirty_d)), Match=intersect(row2.codes,nasa_dirty_d) }
+    @collect DataFrame
+end
+first(sort!(most_days, [:Days], rev=true),6)
