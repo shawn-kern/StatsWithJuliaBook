@@ -56,15 +56,25 @@ for code in nanocode_index
 end
 
 function get_desc(ID::String)
-    desc = hfacs_data[hfacs_data.ID .== ID, :Desc]
-    println(desc)
-    return desc
+    return hfacs_data[hfacs_data.ID .== ID, :Desc][1]
 end
 
 function get_hfacs_desc(ID::String, code::Symbol)
-    desc = base_data[(base_data.ID .== ID) .& (base_data.NanoCode .== code), :NanoCode_Reason]
-    println(desc)
-    return desc
+    return base_data[(base_data.ID .== ID) .& (base_data.NanoCode .== code), :NanoCode_Reason][1]
+end
+
+function get_event_detail(ID)
+    println("ID")
+    println(get_desc(ID))
+    for item in nanocodes[nanocodes.ID .== ID, :codes][1]
+        println()
+        if item in dirty_d
+            print("*")
+        end
+        print(item, " = ")
+        println(nanocode_names[item])
+        get_hfacs_desc(ID, item)
+    end
 end
 
 X2_pvalues = [ pvalue(ChisqTest(freqtable(hfacs_data[:, i], hfacs_data[:,j])), tail=:right)
