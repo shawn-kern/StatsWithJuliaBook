@@ -64,7 +64,7 @@ function get_hfacs_desc(ID::String, code::Symbol)
 end
 
 function get_event_detail(ID)
-    println("ID")
+    println("$ID")
     println(get_desc(ID))
     for item in nanocodes[nanocodes.ID .== ID, :codes][1]
         println()
@@ -73,7 +73,7 @@ function get_event_detail(ID)
         end
         print(item, " = ")
         println(nanocode_names[item])
-        get_hfacs_desc(ID, item)
+        println(get_hfacs_desc(ID, item))
     end
 end
 
@@ -240,3 +240,9 @@ most_days = @from row in hfacs_data begin
     @collect DataFrame
 end
 first(sort!(most_days, [:Days], rev=true),6)
+
+results = @from row in hfacs_data begin
+    @where row.Center == "Armstrong" && row.OP003 == true && row.OR005 == true
+    @select { row.ID, row.Center, row.Days, row.Cost, row.Desc }
+    @collect DataFrame
+end
