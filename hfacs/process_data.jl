@@ -132,6 +132,7 @@ end
 sort!(results, [:Center, :Count], rev=true)
 nasa_dirty_d = Set(first(results.Code[results.Center .== "All", :],12))
 armstrong_dirty_d = Set(first(results.Code[results.Center .== "Armstrong", :],12))
+dirty_d = union(nasa_dirty_d, armstrong_dirty_d)
 
 println("\nDirty dozen")
 println("All Centers")
@@ -201,7 +202,7 @@ end
 most_cost_all = @from row in hfacs_data begin
     @where !isna(row.Cost)
     @join row2 in nanocodes on row.ID equals row2.ID
-    @select { row.ID, row.Center, row.Days, row.Cost, Count=length(intersect(row2.codes,nasa_dirty_d)), Match=intersect(row2.codes,nasa_dirty_d) }
+    @select { row.ID, row.Center, row.Days, row.Cost, Count=length(intersect(row2.codes,dirty_d)), Match=intersect(row2.codes,dirty_d) }
     @collect DataFrame
 end
 first(sort!(most_cost_all, [:Cost], rev=true),6)
@@ -209,7 +210,7 @@ first(sort!(most_cost_all, [:Cost], rev=true),6)
 most_cost = @from row in hfacs_data begin
     @where row.Center == "Armstrong" && !isna(row.Cost)
     @join row2 in nanocodes on row.ID equals row2.ID
-    @select { row.ID, row.Center, row.Days, row.Cost, Count=length(intersect(row2.codes,nasa_dirty_d)), Match=intersect(row2.codes,nasa_dirty_d) }
+    @select { row.ID, row.Center, row.Days, row.Cost, Count=length(intersect(row2.codes,dirty_d)), Match=intersect(row2.codes,dirty_d) }
     @collect DataFrame
 end
 first(sort!(most_cost, [:Cost], rev=true),6)
@@ -217,7 +218,7 @@ first(sort!(most_cost, [:Cost], rev=true),6)
 most_days_all = @from row in hfacs_data begin
     @where !isna(row.Days)
     @join row2 in nanocodes on row.ID equals row2.ID
-    @select { row.ID, row.Center, row.Days, row.Cost, Count=length(intersect(row2.codes,nasa_dirty_d)), Match=intersect(row2.codes,nasa_dirty_d) }
+    @select { row.ID, row.Center, row.Days, row.Cost, Count=length(intersect(row2.codes,dirty_d)), Match=intersect(row2.codes,dirty_d) }
     @collect DataFrame
 end
 first(sort!(most_days_all, [:Days], rev=true),6)
@@ -225,7 +226,7 @@ first(sort!(most_days_all, [:Days], rev=true),6)
 most_days = @from row in hfacs_data begin
     @where row.Center == "Armstrong" && !isna(row.Days)
     @join row2 in nanocodes on row.ID equals row2.ID
-    @select { row.ID, row.Center, row.Days, row.Cost, Count=length(intersect(row2.codes,nasa_dirty_d)), Match=intersect(row2.codes,nasa_dirty_d) }
+    @select { row.ID, row.Center, row.Days, row.Cost, Count=length(intersect(row2.codes, dirty_d)), Match=intersect(row2.codes, dirty_d) }
     @collect DataFrame
 end
 first(sort!(most_days, [:Days], rev=true),6)
