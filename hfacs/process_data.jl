@@ -12,7 +12,7 @@ levels!(raw_data.Type, ["Non-8621 Reportable", "Close Call",
 
 base_data = @from row in raw_data begin
     @where row.Type != "Non-8621 Reportable"
-    @select { row.ID, Center=split(row.Center)[1], row.Type, 
+    @select { row.ID, Center=split(row.Center)[1], row.Date, row.Type, 
     Injury=row.Injury=="Yes", Damage=row.Damage=="Yes", 
     row.NanoCode, NanoCode_Reason=row.HFACS_Rationale, Days=row.OSHA_Days_Away, 
     Cost=row.Final_Cost, Desc=row.Description }
@@ -60,7 +60,7 @@ function get_desc(ID::String)
 end
 
 function get_hfacs_desc(ID::String, code::Symbol)
-    return base_data[(base_data.ID .== ID) .& (base_data.NanoCode .== code), :NanoCode_Reason][1]
+    return base_data[(base_data.ID .== ID) .& (base_data.NanoCode .== code), :NanoCode_Reason]
 end
 
 function get_event_detail(ID)
@@ -160,13 +160,13 @@ println("\nDamage association")
 println("All Centers")
 results = find_index_match(:Damage; α=0.05, center="All", min_n=4)
 for (i, row) in enumerate(eachrow(results))
-    println("$i. $(nanocode_names[row.Index2]) (p=$(round(row.pvalue, sigdigits=3)), n=$(row.N))")
+    println("$i. $(nanocode_names[row.Index2]) ($(row.Index2)) (p=$(round(row.pvalue, sigdigits=3)), n=$(row.N))")
 end
 
 println("\nArmstrong")
 results = find_index_match(:Damage; α=0.05, center="Armstrong", min_n=4)
 for (i, row) in enumerate(eachrow(results))
-    println("$i. $(nanocode_names[row.Index2]) (p=$(round(row.pvalue, sigdigits=3)), n=$(row.N))")
+    println("$i. $(nanocode_names[row.Index2]) ($(row.Index2)) (p=$(round(row.pvalue, sigdigits=3)), n=$(row.N))")
 end
 
 #find injury associations
@@ -174,13 +174,13 @@ println("\nInjury association")
 println("All Centers")
 results = find_index_match(:Injury; α=0.05, center="All", min_n=4)
 for (i, row) in enumerate(eachrow(results))
-    println("$i. $(nanocode_names[row.Index2]) (p=$(round(row.pvalue, sigdigits=3)), n=$(row.N))")
+    println("$i. $(nanocode_names[row.Index2]) ($(row.Index2)) (p=$(round(row.pvalue, sigdigits=3)), n=$(row.N))")
 end
 
 println("\nArmstrong")
 results = find_index_match(:Injury; α=0.05, center="Armstrong", min_n=4)
 for (i, row) in enumerate(eachrow(results))
-    println("$i. $(nanocode_names[row.Index2]) (p=$(round(row.pvalue, sigdigits=3)), n=$(row.N))")
+    println("$i. $(nanocode_names[row.Index2]) ($(row.Index2)) (p=$(round(row.pvalue, sigdigits=3)), n=$(row.N))")
 end
 
 #find pairs
@@ -212,7 +212,7 @@ end
 most_cost_all = @from row in hfacs_data begin
     @where !isna(row.Cost)
     @join row2 in nanocodes on row.ID equals row2.ID
-    @select { row.ID, row.Center, row.Days, row.Cost, Count=length(intersect(row2.codes,dirty_d)), Match=intersect(row2.codes,dirty_d) }
+    @select { row.ID, row.Center, row.Days, row.Cost, lCount=length(row2.codes), Match=row2.codes }
     @collect DataFrame
 end
 first(sort!(most_cost_all, [:Cost], rev=true),6)
@@ -220,7 +220,7 @@ first(sort!(most_cost_all, [:Cost], rev=true),6)
 most_cost = @from row in hfacs_data begin
     @where row.Center == "Armstrong" && !isna(row.Cost)
     @join row2 in nanocodes on row.ID equals row2.ID
-    @select { row.ID, row.Center, row.Days, row.Cost, Count=length(intersect(row2.codes,dirty_d)), Match=intersect(row2.codes,dirty_d) }
+    @select { row.ID, row.Center, row.Days, row.Cost, Count=length(row2.codes), Match=row2.codes }
     @collect DataFrame
 end
 first(sort!(most_cost, [:Cost], rev=true),6)
@@ -228,7 +228,7 @@ first(sort!(most_cost, [:Cost], rev=true),6)
 most_days_all = @from row in hfacs_data begin
     @where !isna(row.Days)
     @join row2 in nanocodes on row.ID equals row2.ID
-    @select { row.ID, row.Center, row.Days, row.Cost, Count=length(intersect(row2.codes,dirty_d)), Match=intersect(row2.codes,dirty_d) }
+    @select { row.ID, row.Center, row.Days, row.Cost, Count=length(row2.codes), Match=row2.codes }
     @collect DataFrame
 end
 first(sort!(most_days_all, [:Days], rev=true),6)
@@ -236,13 +236,19 @@ first(sort!(most_days_all, [:Days], rev=true),6)
 most_days = @from row in hfacs_data begin
     @where row.Center == "Armstrong" && !isna(row.Days)
     @join row2 in nanocodes on row.ID equals row2.ID
-    @select { row.ID, row.Center, row.Days, row.Cost, Count=length(intersect(row2.codes, dirty_d)), Match=intersect(row2.codes, dirty_d) }
+    @select { row.ID, row.Center, row.Days, row.Cost, Count=length(row2.codes), Match=row2.codes }
     @collect DataFrame
 end
 first(sort!(most_days, [:Days], rev=true),6)
 
 results = @from row in hfacs_data begin
     @where row.Center == "Armstrong" && row.OP003 == true && row.OR005 == true
+    @select { row.ID, row.Center, row.Days, row.Cost, row.Desc }
+    @collect DataFrame
+end
+
+results = @from row in hfacs_data begin
+    @where row.Center == "Armstrong" && row.AS002 == true
     @select { row.ID, row.Center, row.Days, row.Cost, row.Desc }
     @collect DataFrame
 end
